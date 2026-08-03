@@ -1,11 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.2.1 — 2026-08-03
 
 ### Changed
-- `sideEffects: false`, so bundlers can tree-shake unused exports.
-  Not yet released — this package has no publish path from the monorepo,
-  see docs/plans/2026-08-02-v1-roadmap.md.
+- `sideEffects: false` in package.json, so bundlers can tree-shake unused
+  exports. Every module here is pure; without the declaration a consumer
+  importing one helper had to ship the whole library.
+
+### Added
+- Standalone repo at github.com/nomideusz/svelte-payments with a Release & Publish
+  workflow, so this package has a reproducible release path for the first time.
 
 Backfilled 2026-08-02 from git history. Entries before that date are
 reconstructed from commits, so they record what changed rather than a release
