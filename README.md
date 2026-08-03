@@ -1,6 +1,6 @@
 # @nomideusz/svelte-payments
 
-[![npm](https://badgen.net/npm/v/@nomideusz/svelte-payments)](https://www.npmjs.com/package/@nomideusz/svelte-payments) [![license](https://badgen.net/badge/license/MIT/blue)](./LICENSE)
+[![npm](https://badgen.net/npm/v/@nomideusz/svelte-payments)](https://www.npmjs.com/package/@nomideusz/svelte-payments) [![license](https://badgen.net/badge/license/MIT/blue)](https://github.com/nomideusz/svelte-payments/blob/main/LICENSE)
 
 Provider-agnostic payments for Svelte 5 booking products — hosted checkout, embedded card fields, subscriptions, refunds, and a webhook-safe settlement state machine. Currently ships a **Mollie** adapter (zero dependencies, plain `fetch`); the interfaces are deliberately shaped to fit Stripe Checkout next.
 
