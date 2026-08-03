@@ -81,11 +81,19 @@ const payment = await checkout.start({
   amount: 12000, currency: 'PLN',
   description: 'Sunrise Hatha class',
   redirectUrl, webhookUrl,
+  billingEmail: guest.email,   // methods that ask (Przelewy24) prefill it
   metadata: { bookingId },
 });
 
 // 2. Settle — from your webhook route
-export const POST = ({ request }) => checkout.handleWebhook(request);`}</code></pre>
+export const POST = ({ request }) => checkout.handleWebhook(request);
+
+// 3. The settled Payment carries the payer's real name when the
+//    method reports one (P24 consumerName, card holder) — backfill
+//    guest records created from an e-mail alone:
+onPaid: async (p) => {
+  if (p.consumerName) await adoptRealName(p.metadata.bookingId, p.consumerName);
+}`}</code></pre>
 		<p class="muted">
 			The provider interface is small on purpose — <code>createPayment</code>,
 			<code>getPayment</code>, <code>refund</code>, <code>webhookPaymentId</code> — so a second

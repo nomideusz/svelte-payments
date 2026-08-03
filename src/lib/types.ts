@@ -23,6 +23,11 @@ export interface CreatePaymentInput {
 	locale?: string;
 	/** Restrict/preselect payment methods, e.g. ['blik', 'przelewy24'] */
 	methods?: string[];
+	/** Customer e-mail forwarded to the provider — methods that ask for one
+	 *  (e.g. Przelewy24) prefill it instead of making the customer retype it,
+	 *  which also stops the checkout collecting a DIFFERENT address than the
+	 *  one the order was placed under. */
+	billingEmail?: string;
 	/** Round-trips back on the Payment — put your order/booking id here */
 	metadata?: Record<string, string>;
 	/** Provider customer id — required for sequenceType 'first' / 'recurring' */
@@ -47,6 +52,10 @@ export interface Payment {
 	customerId?: string;
 	/** Set on charges spawned by a subscription */
 	subscriptionId?: string;
+	/** The payer's real name as reported by the payment method (Przelewy24
+	 *  consumerName, card holder…). Only present once the method knows it —
+	 *  use it to backfill guest records created from an e-mail alone. */
+	consumerName?: string;
 }
 
 export interface Customer {

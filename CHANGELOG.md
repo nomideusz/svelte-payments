@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 — 2026-08-03
+
+### Added
+- `CreatePaymentInput.billingEmail` — forwarded to the provider so methods
+  that ask for an e-mail (Przelewy24) prefill it instead of collecting a
+  second, possibly different address.
+- `Payment.consumerName` — the payer's real name as reported by the payment
+  method (P24 `consumerName`, card `cardHolder`), for backfilling guest
+  records created from an e-mail alone.
+
 ## 0.2.2 — 2026-08-03
 
 ### Added

@@ -44,6 +44,30 @@ describe('mollie adapter', () => {
 		});
 	});
 
+	it('forwards billingEmail and surfaces the payer name from method details', async () => {
+		const fetchSpy = stubFetch(
+			molliePayment({ status: 'paid', details: { consumerName: 'Anna Kowalska' } }),
+		);
+		const p = await mollie('key').createPayment({
+			amount: 4900,
+			currency: 'PLN',
+			description: 'Yoga class',
+			redirectUrl: 'https://x/return',
+			billingEmail: 'anna@example.com',
+		});
+		const sent = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+		expect(sent.billingEmail).toBe('anna@example.com');
+		expect(p.consumerName).toBe('Anna Kowalska');
+		vi.restoreAllMocks();
+
+		// Card payments report cardHolder instead; absent details stay undefined.
+		stubFetch(molliePayment({ details: { cardHolder: 'A. Kowalska' } }));
+		expect((await mollie('k').getPayment('tr_abc123')).consumerName).toBe('A. Kowalska');
+		vi.restoreAllMocks();
+		stubFetch(molliePayment());
+		expect((await mollie('k').getPayment('tr_abc123')).consumerName).toBeUndefined();
+	});
+
 	it('rejects non-integer and non-positive amounts', async () => {
 		await expect(
 			mollie('key').createPayment({

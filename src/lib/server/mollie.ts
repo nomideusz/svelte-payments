@@ -59,6 +59,9 @@ export function mollie(apiKey: string): PaymentProvider {
 		metadata: p.metadata ?? undefined,
 		customerId: p.customerId ?? undefined,
 		subscriptionId: p.subscriptionId ?? undefined,
+		// Method-dependent field names: P24/bank transfers report consumerName,
+		// card payments cardHolder. Absent until the method learns it.
+		consumerName: p.details?.consumerName ?? p.details?.cardHolder ?? undefined,
 	});
 
 	const SUB_STATUSES: SubscriptionStatus[] = ['pending', 'active', 'suspended', 'canceled', 'completed'];
@@ -95,6 +98,7 @@ export function mollie(apiKey: string): PaymentProvider {
 						customerId: input.customerId,
 						sequenceType: input.sequenceType,
 						cardToken: input.cardToken,
+						billingEmail: input.billingEmail,
 					}),
 				}),
 			);
