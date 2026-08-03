@@ -1,6 +1,6 @@
 {
   "name": "@nomideusz/svelte-payments",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Provider-agnostic payments for the @nomideusz booking platform — Mollie server adapter + Stripe Connect UI.",
   "type": "module",
   "sideEffects": false,
@@ -60,5 +60,6 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/nomideusz/svelte-payments"
-  }
+  },
+  "homepage": "https://svelte-payments.vercel.app/"
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2 — 2026-08-03
+
+### Added
+- Demo site at https://svelte-payments.vercel.app/ — StripeConnectStatus in both
+  states plus the server checkout API. `homepage` now points at it.
+
 ## 0.2.1 — 2026-08-03
 
 ### Changed
