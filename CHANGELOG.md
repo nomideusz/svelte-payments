@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.4.0 — 2026-08-09
+
+### Added
+- **Idempotency keys.** `idempotencyKey?` on `CreatePaymentInput`,
+  `CreateSubscriptionInput` and `refund()` opts, sent as Mollie's
+  `Idempotency-Key` header — a retried mutating call (timeout, crash between
+  your DB claim and the provider's response) returns the original result
+  instead of acting twice. Previously `call()` sent no such header and callers
+  could not inject one; the sharpest failure that closes: subscription-create
+  timeout → app releases its DB claim → retry → two live monthly charges on
+  the same mandate. Pair with a keyed row in your DB (insert key first, call
+  with it) — the pattern thebest's financial-event ledger uses with Stripe.
+- **Connect/OAuth readiness** (per `docs/plans/2026-08-07-mollie-connect-spec.md`):
+  `mollie(apiKey, { testmode: true })` — OAuth tokens span live+test and need
+  the explicit flag on every call (POST bodies get `testmode: true`, reads get
+  `?testmode=true`); `CreatePaymentInput.profileId` /
+  `CreateSubscriptionInput.profileId` — org-level OAuth tokens must name the
+  profile per payment; `CreatePaymentInput.applicationFee` — integer minor
+  units, converted to Mollie's amount object. All optional; API-key usage is
+  byte-identical to 0.3.0.
+
+### Fixed
+- README webhook example now carries the SvelteKit CSRF caveat: Mollie's
+  form-encoded, Origin-less webhook POST is 403'd by SvelteKit's built-in CSRF
+  check *before any hook runs* — the built-in check must be disabled and
+  re-implemented in hooks, with the webhook path handled first. The old
+  example, followed literally, produced a webhook endpoint that fails every
+  delivery.
+
 ## 0.3.0 — 2026-08-03
 
 ### Added

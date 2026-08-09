@@ -37,6 +37,17 @@ export interface CreatePaymentInput {
 	cardToken?: string;
 	/** 'first' establishes a mandate for later recurring charges; default 'oneoff' */
 	sequenceType?: 'oneoff' | 'first' | 'recurring';
+	/** Sent as the provider's Idempotency-Key header: a retried call (timeout,
+	 *  crash between DB claim and provider response) returns the SAME payment
+	 *  instead of creating a second one. Pair it with a keyed row in your DB —
+	 *  insert the key first, then call with it. */
+	idempotencyKey?: string;
+	/** Connect/OAuth: which profile the payment belongs to. Required when the
+	 *  adapter authenticates with an organization-level OAuth token. */
+	profileId?: string;
+	/** Connect/OAuth: platform fee taken from this payment (integer minor units,
+	 *  same currency as the payment). */
+	applicationFee?: { amount: number; description: string };
 }
 
 export interface Payment {
@@ -79,6 +90,13 @@ export interface CreateSubscriptionInput {
 	startDate?: string;
 	webhookUrl?: string;
 	metadata?: Record<string, string>;
+	/** Sent as the provider's Idempotency-Key header — a retried call returns
+	 *  the SAME subscription instead of double-charging the mandate monthly.
+	 *  The sharpest known failure without it: timeout → DB claim released →
+	 *  retry → two live subscriptions. */
+	idempotencyKey?: string;
+	/** Connect/OAuth: which profile the subscription belongs to. */
+	profileId?: string;
 }
 
 export interface Subscription {
@@ -120,8 +138,12 @@ export interface PaymentProvider {
 	readonly name: string;
 	createPayment(input: CreatePaymentInput): Promise<Payment>;
 	getPayment(id: string): Promise<Payment>;
-	/** Refund a paid payment, fully or partially. Amount in integer minor units. */
-	refund(paymentId: string, opts: { amount: number; currency: string; description?: string }): Promise<Refund>;
+	/** Refund a paid payment, fully or partially. Amount in integer minor units.
+	 *  `idempotencyKey` makes a retried call safe (see CreatePaymentInput). */
+	refund(
+		paymentId: string,
+		opts: { amount: number; currency: string; description?: string; idempotencyKey?: string },
+	): Promise<Refund>;
 	createCustomer(input: { name?: string; email?: string; metadata?: Record<string, string> }): Promise<Customer>;
 	createSubscription(input: CreateSubscriptionInput): Promise<Subscription>;
 	getSubscription(customerId: string, id: string): Promise<Subscription>;

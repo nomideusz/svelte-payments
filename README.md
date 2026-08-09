@@ -42,6 +42,18 @@ await checkout.settle(paymentId); // e.g. on the confirmation page
 
 `handleWebhook` answers 400 for junk and forged ids (stop retrying) and rethrows real failures so your route 500s and the provider retries.
 
+> **SvelteKit caveat:** a plain `+server.ts` POST route is NOT enough on its
+> own. Mollie posts `application/x-www-form-urlencoded` with no `Origin`
+> header, and SvelteKit's built-in CSRF protection 403s exactly that shape —
+> and it runs **before any handle hook**, so neither a hook nor
+> `csrf.trustedOrigins` can exempt the route (`trustedOrigins` matches Origin
+> values; an Origin-less request never passes it). The pattern that works in
+> production: disable the built-in check in `svelte.config.js`
+> (`csrf: { checkOrigin: false }`, or `trustedOrigins: ['*']` on newer Kit),
+> then in `hooks.server.ts` handle the webhook path first and re-implement the
+> origin check yourself for every other mutating request — otherwise every
+> webhook delivery fails and Mollie keeps retrying.
+
 ## Subscriptions
 
 Customers, mandates and recurring charges (Mollie: card mandates via a `sequenceType: 'first'` payment):

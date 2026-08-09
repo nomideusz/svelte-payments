@@ -95,9 +95,78 @@ onPaid: async (p) => {
   if (p.consumerName) await adoptRealName(p.metadata.bookingId, p.consumerName);
 }`}</code></pre>
 		<p class="muted">
+			SvelteKit caveat: Mollie's webhook POST is form-encoded and carries no
+			<code>Origin</code> header, and SvelteKit's built-in CSRF protection 403s exactly that
+			shape — it runs <em>before any handle hook</em>, so no hook can exempt the route. Disable
+			it in <code>svelte.config.js</code> (<code>csrf: {'{ checkOrigin: false }'}</code>) and
+			re-implement the origin check yourself in <code>hooks.server.ts</code>, handling the
+			webhook path first — otherwise every delivery fails and Mollie keeps retrying.
+		</p>
+		<p class="muted">
 			The provider interface is small on purpose — <code>createPayment</code>,
 			<code>getPayment</code>, <code>refund</code>, <code>webhookPaymentId</code> — so a second
 			provider is a new adapter rather than a new integration.
+		</p>
+	</section>
+
+	<section>
+		<h2>Server: idempotency keys</h2>
+		<p class="muted">
+			<code>idempotencyKey</code> on <code>CreatePaymentInput</code>,
+			<code>CreateSubscriptionInput</code> and the <code>refund()</code> opts is sent as Mollie's
+			<code>Idempotency-Key</code> header — a retried mutating call (timeout, crash between your
+			DB write and the provider's response) returns the original result instead of acting twice.
+		</p>
+		<pre><code>{`// Insert a keyed row in YOUR db first, then call with the key —
+// if the process dies mid-call, the retry replays instead of duplicating.
+const key = crypto.randomUUID();
+await db.insert(paymentAttempts).values({ key, bookingId });
+
+const payment = await checkout.start({
+  amount: 12000, currency: 'PLN',
+  description: 'Sunrise Hatha class',
+  redirectUrl, webhookUrl,
+  metadata: { bookingId },
+  idempotencyKey: key,
+});
+
+// Same shape on the other mutations:
+await provider.createSubscription({ ...input, idempotencyKey: key });
+await provider.refund(paymentId, {
+  amount: 12000, currency: 'PLN', idempotencyKey: key,
+});`}</code></pre>
+		<p class="muted">
+			The sharpest failure this closes: subscription-create timeout → your app releases its DB
+			claim → retry → two live monthly charges on the same mandate.
+		</p>
+	</section>
+
+	<section>
+		<h2>Server: Connect / OAuth tokens</h2>
+		<p class="muted">
+			Plain <code>test_</code>/<code>live_</code> API keys decide their own mode, but OAuth
+			(Connect) tokens span live+test and need an explicit flag on every call —
+			<code>mollie(token, {'{ testmode: true }'})</code> puts <code>testmode: true</code> in POST
+			and DELETE bodies and <code>?testmode=true</code> on reads. Organization-level tokens must
+			also name which profile a payment belongs to, and can take a platform fee.
+		</p>
+		<pre><code>{`import { mollie } from '@nomideusz/svelte-payments/server';
+
+// OAuth access token instead of an API key — testmode must be explicit
+const provider = mollie(school.mollieAccessToken, { testmode: dev });
+
+const payment = await provider.createPayment({
+  amount: 12000, currency: 'PLN',
+  description: 'Sunrise Hatha class',
+  redirectUrl, webhookUrl,
+  profileId: school.mollieProfileId,  // org-level tokens: required per payment
+  applicationFee: {
+    amount: 240,                      // integer minor units, payment currency
+    description: 'platform fee',
+  },
+});`}</code></pre>
+		<p class="muted">
+			All of it is optional — with a plain API key the adapter behaves exactly as before.
 		</p>
 	</section>
 

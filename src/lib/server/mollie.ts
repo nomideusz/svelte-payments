@@ -35,13 +35,31 @@ const STATUS: Record<string, PaymentStatus> = {
 const toValue = (minor: number) => (minor / 100).toFixed(2);
 const toMinor = (value: string) => Math.round(Number(value) * 100);
 
-export function mollie(apiKey: string): PaymentProvider {
-	async function call(path: string, init?: RequestInit): Promise<any> {
+export interface MollieOptions {
+	/** OAuth (Connect) tokens span live+test and require an explicit testmode on
+	 *  every call — POST bodies get `testmode: true`, reads get `?testmode=true`.
+	 *  Irrelevant for plain test_/live_ API keys (the key decides the mode). */
+	testmode?: boolean;
+}
+
+export function mollie(apiKey: string, options: MollieOptions = {}): PaymentProvider {
+	const { testmode } = options;
+	// Mode flag placement per Mollie's API: request body for mutations
+	// (POST *and* DELETE — cancel-subscription takes it as a body parameter),
+	// query string for reads.
+	const modeBody = testmode ? { testmode: true } : {};
+	const q = (path: string) =>
+		testmode ? `${path}${path.includes('?') ? '&' : '?'}testmode=true` : path;
+
+	async function call(path: string, init?: RequestInit, idempotencyKey?: string): Promise<any> {
 		const res = await fetch(`${API}${path}`, {
 			...init,
 			headers: {
 				Authorization: `Bearer ${apiKey}`,
 				'Content-Type': 'application/json',
+				// A retried mutating call with the same key returns the original
+				// result instead of acting twice.
+				...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
 			},
 		});
 		if (res.status === 404) throw new PaymentNotFoundError(path);
@@ -84,27 +102,47 @@ export function mollie(apiKey: string): PaymentProvider {
 			if (!Number.isInteger(input.amount) || input.amount <= 0) {
 				throw new Error(`amount must be a positive integer in minor units, got ${input.amount}`);
 			}
+			if (input.applicationFee && (!Number.isInteger(input.applicationFee.amount) || input.applicationFee.amount <= 0)) {
+				throw new Error(`applicationFee.amount must be a positive integer in minor units, got ${input.applicationFee.amount}`);
+			}
 			return normalize(
-				await call('/payments', {
-					method: 'POST',
-					body: JSON.stringify({
-						amount: { currency: input.currency, value: toValue(input.amount) },
-						description: input.description,
-						redirectUrl: input.redirectUrl,
-						webhookUrl: input.webhookUrl,
-						locale: input.locale,
-						method: input.methods,
-						metadata: input.metadata,
-						customerId: input.customerId,
-						sequenceType: input.sequenceType,
-						cardToken: input.cardToken,
-						billingEmail: input.billingEmail,
-					}),
-				}),
+				await call(
+					'/payments',
+					{
+						method: 'POST',
+						body: JSON.stringify({
+							amount: { currency: input.currency, value: toValue(input.amount) },
+							description: input.description,
+							redirectUrl: input.redirectUrl,
+							webhookUrl: input.webhookUrl,
+							locale: input.locale,
+							method: input.methods,
+							metadata: input.metadata,
+							customerId: input.customerId,
+							sequenceType: input.sequenceType,
+							cardToken: input.cardToken,
+							billingEmail: input.billingEmail,
+							profileId: input.profileId,
+							...(input.applicationFee
+								? {
+										applicationFee: {
+											amount: {
+												currency: input.currency,
+												value: toValue(input.applicationFee.amount),
+											},
+											description: input.applicationFee.description,
+										},
+									}
+								: {}),
+							...modeBody,
+						}),
+					},
+					input.idempotencyKey,
+				),
 			);
 		},
 
-		getPayment: async (id) => normalize(await call(`/payments/${encodeURIComponent(id)}`)),
+		getPayment: async (id) => normalize(await call(q(`/payments/${encodeURIComponent(id)}`))),
 
 		async refund(paymentId, opts) {
 			if (!Number.isInteger(opts.amount) || opts.amount <= 0) {
@@ -118,13 +156,18 @@ export function mollie(apiKey: string): PaymentProvider {
 				refunded: 'refunded',
 				failed: 'failed',
 			};
-			const r = await call(`/payments/${encodeURIComponent(paymentId)}/refunds`, {
-				method: 'POST',
-				body: JSON.stringify({
-					amount: { currency: opts.currency, value: toValue(opts.amount) },
-					description: opts.description,
-				}),
-			});
+			const r = await call(
+				`/payments/${encodeURIComponent(paymentId)}/refunds`,
+				{
+					method: 'POST',
+					body: JSON.stringify({
+						amount: { currency: opts.currency, value: toValue(opts.amount) },
+						description: opts.description,
+						...modeBody,
+					}),
+				},
+				opts.idempotencyKey,
+			);
 			return {
 				id: r.id,
 				paymentId,
@@ -135,7 +178,10 @@ export function mollie(apiKey: string): PaymentProvider {
 		},
 
 		async createCustomer(input) {
-			const c = await call('/customers', { method: 'POST', body: JSON.stringify(input) });
+			const c = await call('/customers', {
+				method: 'POST',
+				body: JSON.stringify({ ...input, ...modeBody }),
+			});
 			return { id: c.id };
 		},
 
@@ -143,24 +189,32 @@ export function mollie(apiKey: string): PaymentProvider {
 			if (!Number.isInteger(input.amount) || input.amount <= 0) {
 				throw new Error(`amount must be a positive integer in minor units, got ${input.amount}`);
 			}
-			const { customerId, amount, currency, ...rest } = input;
+			const { customerId, amount, currency, idempotencyKey, ...rest } = input;
 			return normalizeSub(
-				await call(`/customers/${encodeURIComponent(customerId)}/subscriptions`, {
-					method: 'POST',
-					body: JSON.stringify({ ...rest, amount: { currency, value: toValue(amount) } }),
-				}),
+				await call(
+					`/customers/${encodeURIComponent(customerId)}/subscriptions`,
+					{
+						method: 'POST',
+						body: JSON.stringify({
+							...rest,
+							amount: { currency, value: toValue(amount) },
+							...modeBody,
+						}),
+					},
+					idempotencyKey,
+				),
 			);
 		},
 
 		getSubscription: async (customerId, id) =>
 			normalizeSub(
-				await call(`/customers/${encodeURIComponent(customerId)}/subscriptions/${encodeURIComponent(id)}`),
+				await call(q(`/customers/${encodeURIComponent(customerId)}/subscriptions/${encodeURIComponent(id)}`)),
 			),
 
 		async listCustomerPayments(customerId) {
 			// Newest first (Mollie default ordering). One page is plenty for
 			// reconciliation — renewals are monthly.
-			const r = await call(`/customers/${encodeURIComponent(customerId)}/payments?limit=20`);
+			const r = await call(q(`/customers/${encodeURIComponent(customerId)}/payments?limit=20`));
 			return (r._embedded?.payments ?? []).map(normalize);
 		},
 
@@ -168,6 +222,7 @@ export function mollie(apiKey: string): PaymentProvider {
 			normalizeSub(
 				await call(`/customers/${encodeURIComponent(customerId)}/subscriptions/${encodeURIComponent(id)}`, {
 					method: 'DELETE',
+					...(testmode ? { body: JSON.stringify({ testmode: true }) } : {}),
 				}),
 			),
 

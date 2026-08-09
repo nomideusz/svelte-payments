@@ -170,4 +170,94 @@ describe('mollie adapter', () => {
 		expect(await provider.webhookPaymentId(req('id=DROP TABLE'))).toBeNull();
 		expect(await provider.webhookPaymentId(req(''))).toBeNull();
 	});
+
+	it('sends Idempotency-Key on createPayment/refund/createSubscription when given, never otherwise', async () => {
+		const header = (spy: ReturnType<typeof stubFetch>, call = 0) =>
+			(spy.mock.calls[call][1]!.headers as Record<string, string>)['Idempotency-Key'];
+
+		let spy = stubFetch(molliePayment());
+		await mollie('k').createPayment({
+			amount: 4900, currency: 'PLN', description: 'x', redirectUrl: 'https://x',
+			idempotencyKey: 'charge:b1',
+		});
+		expect(header(spy)).toBe('charge:b1');
+		const sentPayment = JSON.parse(spy.mock.calls[0][1]!.body as string);
+		expect(sentPayment.idempotencyKey).toBeUndefined(); // header, not body
+		vi.restoreAllMocks();
+
+		spy = stubFetch({ id: 're_1', status: 'queued', amount: { currency: 'PLN', value: '20.00' } });
+		await mollie('k').refund('tr_1', { amount: 2000, currency: 'PLN', idempotencyKey: 'refund:b1:2000' });
+		expect(header(spy)).toBe('refund:b1:2000');
+		vi.restoreAllMocks();
+
+		spy = stubFetch({ id: 'sub_1', customerId: 'cst_a', status: 'active', amount: { currency: 'PLN', value: '49.00' }, interval: '1 month' });
+		await mollie('k').createSubscription({
+			customerId: 'cst_a', amount: 4900, currency: 'PLN', interval: '1 month', description: 'p',
+			idempotencyKey: 'sub:pass1',
+		});
+		expect(header(spy)).toBe('sub:pass1');
+		const sentSub = JSON.parse(spy.mock.calls[0][1]!.body as string);
+		expect(sentSub.idempotencyKey).toBeUndefined();
+		vi.restoreAllMocks();
+
+		spy = stubFetch(molliePayment());
+		await mollie('k').createPayment({ amount: 4900, currency: 'PLN', description: 'x', redirectUrl: 'https://x' });
+		expect(header(spy)).toBeUndefined();
+	});
+
+	it('Connect readiness: profileId and applicationFee flow into the payment body', async () => {
+		const spy = stubFetch(molliePayment());
+		await mollie('org-token').createPayment({
+			amount: 4900, currency: 'PLN', description: 'x', redirectUrl: 'https://x',
+			profileId: 'pfl_abc',
+			applicationFee: { amount: 250, description: 'platform fee' },
+		});
+		const sent = JSON.parse(spy.mock.calls[0][1]!.body as string);
+		expect(sent.profileId).toBe('pfl_abc');
+		expect(sent.applicationFee).toEqual({
+			amount: { currency: 'PLN', value: '2.50' },
+			description: 'platform fee',
+		});
+
+		await expect(
+			mollie('k').createPayment({
+				amount: 4900, currency: 'PLN', description: 'x', redirectUrl: 'https://x',
+				applicationFee: { amount: 2.5, description: 'bad' },
+			}),
+		).rejects.toThrow(/minor units/);
+	});
+
+	it('testmode: true lands in POST bodies and as ?testmode=true on reads', async () => {
+		const provider = mollie('org-token', { testmode: true });
+
+		let spy = stubFetch(molliePayment());
+		await provider.createPayment({ amount: 100, currency: 'PLN', description: 'x', redirectUrl: 'https://x' });
+		expect(JSON.parse(spy.mock.calls[0][1]!.body as string).testmode).toBe(true);
+		vi.restoreAllMocks();
+
+		spy = stubFetch(molliePayment());
+		await provider.getPayment('tr_abc123');
+		expect(spy.mock.calls[0][0]).toContain('/payments/tr_abc123?testmode=true');
+		vi.restoreAllMocks();
+
+		spy = stubFetch({ _embedded: { payments: [] } });
+		await provider.listCustomerPayments!('cst_a');
+		expect(spy.mock.calls[0][0]).toContain('/payments?limit=20&testmode=true'); // query merge
+		vi.restoreAllMocks();
+
+		// Cancel-subscription takes testmode as a BODY parameter, not query.
+		spy = stubFetch({ id: 'sub_x1', customerId: 'cst_a', status: 'canceled', amount: { currency: 'PLN', value: '49.00' }, interval: '1 month' });
+		await provider.cancelSubscription('cst_a', 'sub_x1');
+		expect(spy.mock.calls[0][0]).not.toContain('testmode');
+		expect(JSON.parse(spy.mock.calls[0][1]!.body as string)).toEqual({ testmode: true });
+		vi.restoreAllMocks();
+
+		// Without the option nothing changes anywhere.
+		spy = stubFetch(molliePayment());
+		await mollie('k').getPayment('tr_abc123');
+		expect(spy.mock.calls[0][0]).not.toContain('testmode');
+		spy = stubFetch(molliePayment());
+		await mollie('k').createPayment({ amount: 100, currency: 'PLN', description: 'x', redirectUrl: 'https://x' });
+		expect(JSON.parse(spy.mock.calls[1][1]!.body as string).testmode).toBeUndefined();
+	});
 });
