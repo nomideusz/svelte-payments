@@ -74,6 +74,35 @@ await provider.createSubscription({
 await provider.refund(paymentId, { amount: 4900, currency: 'PLN' });
 ```
 
+## Ledger (`@nomideusz/svelte-payments/ledger`)
+
+A pure financial-event-ledger subpath — no DB, no SDK, no env. It owns the
+event vocabulary, the idempotency-key grammar, and the one safe ordering for a
+keyed money movement; your app owns the table schema, the SDK calls, and the
+duplicate-recovery policy.
+
+```ts
+import { executeKeyedOperation, refundKey, derivePaymentStatus } from '@nomideusz/svelte-payments/ledger';
+
+// refundKey encodes the CUMULATIVE amount, so a retry reuses the key while a
+// genuine second refund gets a new one.
+const res = await executeKeyedOperation(
+  store, // your LedgerStore: insert(event) atomic on eventKey, markCompleted(key)
+  { eventKey: refundKey(bookingId, refundedSoFar + amount), type: 'refund', subjectId: bookingId, paymentId, amount, currency: 'PLN' },
+  (idempotencyKey) => provider.refund(paymentId, { amount, currency: 'PLN', idempotencyKey }),
+);
+if (res.status === 'executed') { /* update your totals */ }
+
+derivePaymentStatus(totalMinor, refundedMinor); // 'paid' | 'partially_refunded' | 'refunded'
+```
+
+`executeKeyedOperation` appends the event row → calls the provider with the key
+→ marks it completed. A duplicate key short-circuits without touching the
+provider; a provider failure rethrows and leaves the row for your recovery
+path. Amounts are validated as integer minor units. The vocabulary is
+provider-neutral (`charge` / `refund` / `chargeback`); marketplace shapes
+(transfers, payouts) are deliberately excluded from the core.
+
 ## Embedded card fields
 
 `MollieCard` wraps Mollie Components (PCI SAQ-A hosted iframes) as a Svelte 5 component, themeable via `--asini-*` custom properties:

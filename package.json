@@ -1,6 +1,6 @@
 {
   "name": "@nomideusz/svelte-payments",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Provider-agnostic payments for the @nomideusz booking platform — Mollie server adapter + Stripe Connect UI.",
   "type": "module",
   "sideEffects": false,
@@ -16,6 +16,10 @@
     "./server": {
       "types": "./dist/server/index.d.ts",
       "default": "./dist/server/index.js"
+    },
+    "./ledger": {
+      "types": "./dist/ledger/index.d.ts",
+      "default": "./dist/ledger/index.js"
     }
   },
   "files": [

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.0 — 2026-08-09
+
+### Added
+- **`@nomideusz/svelte-payments/ledger`** — a pure financial-event-ledger
+  subpath (no DB, no SDK, no env): `LedgerStore`/`LedgerEvent` with a
+  provider-neutral vocabulary (charge / refund / chargeback),
+  `refundKey(subjectId, cumulativeMinorAfter)` encoding the cumulative-amount
+  grammar (a retry reuses the key, a second refund gets a new one),
+  `executeKeyedOperation(store, event, call)` owning the one safe ordering —
+  append event row → provider call with the key as `Idempotency-Key` → mark
+  completed — and `derivePaymentStatus(totalMinor, refundedMinor)`. Amounts
+  are validated as integer minor units. The app keeps its table schema, SDK
+  calls, duplicate-recovery policy, and all domain math. Marketplace shapes
+  (transfers, payouts) are deliberately excluded from the core vocabulary.
+
 ## 0.4.0 — 2026-08-09
 
 ### Added
