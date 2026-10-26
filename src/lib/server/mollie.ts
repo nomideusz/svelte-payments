@@ -99,6 +99,9 @@ export function mollie(apiKey: string, options: MollieOptions = {}): PaymentProv
 		name: 'mollie',
 
 		async createPayment(input: CreatePaymentInput) {
+			// Mollie has no on-page checkout of this kind (MollieCard tokenizes a
+			// card instead) — refuse rather than hand back a payment with no way to pay.
+			if (input.embedded) throw new Error('mollie adapter: embedded checkout is Stripe-only (use cardToken)');
 			if (!Number.isInteger(input.amount) || input.amount <= 0) {
 				throw new Error(`amount must be a positive integer in minor units, got ${input.amount}`);
 			}

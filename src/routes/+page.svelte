@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { StripeConnectStatus } from '$lib/index.js';
+	import { StripeConnectStatus } from '#lib/index.js';
 
 	let connected = $state(false);
 </script>

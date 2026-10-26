@@ -1,4 +1,6 @@
 export { mollie } from './mollie.js';
+export { stripe, stripeConnect } from './stripe.js';
+export type { StripeOptions, ConnectAccount } from './stripe.js';
 export { createCheckout } from './checkout.js';
 export type { CheckoutStore, Checkout } from './checkout.js';
 export { PaymentNotFoundError } from '../types.js';

@@ -1,5 +1,59 @@
 # Changelog
 
+## 0.9.0 — 2026-10-26
+
+### Added
+- `StripePayment` takes `billingName`: the payer's name as already typed, passed to Stripe as `defaultValues.billingAddress.name` so the card form starts from it.
+
+## 0.8.0 — 2026-10-07
+
+### Added
+- **`fonts`** on `<StripePayment>` — Stripe's font set (`elementsOptions.fonts`),
+  for a family the iframe can't load from the host page. Stripe takes only
+  `https://` or `data:` sources (an `http://` dev origin is refused with a
+  console warning), no `:` or `@` in the path, and a file on another origin
+  must be served with CORS.
+
+## 0.7.0 — 2026-10-06
+
+### Added
+- **Pay on the page.** `createPayment({ embedded: true })` on the Stripe
+  adapter creates the Checkout Session with `ui_mode: 'custom'`: it returns
+  `clientSecret` (only while the session is open) and no `checkoutUrl`;
+  `redirectUrl` becomes the `return_url` for methods that must leave the page.
+  Mollie refuses `embedded` (use `cardToken`).
+- **`<StripePayment>`** — the Payment Element over such a session (Stripe.js
+  clover from js.stripe.com, `initCheckoutElementsSdk`), `account` for Connect
+  direct charges, `confirm()` → `{ ok } | { ok: false, message }` with
+  `redirect: 'if_required'`. `--asini-*` tokens are resolved to concrete
+  colors for the iframe; `appearance` overrides them.
+- **`expiresAt`** on `CreatePaymentInput` (Stripe: 30 min – 24 h out, checked
+  before the call) — match it to whatever the payment holds.
+- **`PaymentProvider.expirePayment?(id)`** — closes a still-payable checkout
+  and returns its state after; a session paid meanwhile comes back `'paid'`.
+- **`stripeConnect(secretKey)`** — `createAccount` (the school's own account:
+  it pays Stripe's fees, full Dashboard, Stripe collects requirements and
+  carries payment losses), `onboardingLink` (hosted, one-time, everything
+  `eventually_due` up front) and `getAccount` → `ConnectAccount`
+  (`chargesEnabled`, `payoutsEnabled`, `detailsSubmitted`, `due`).
+
+## 0.6.0 — 2026-10-06
+
+### Added
+- **`stripe(secretKey, { webhookSecret })`** server adapter — the same
+  `PaymentProvider` contract as `mollie()`, plain fetch, no SDK. A payment is a
+  Checkout Session (`cs_…`). Connect = direct charges: with `profileId` (an
+  `acct_…`) the session is created on the connected account, which is the
+  merchant of record and pays Stripe's processing fee; `applicationFee` is the
+  platform's cut, and a refund comes out of the account's balance with the fee
+  returned proportionally. Such a payment's id is `acct_…:cs_…` — treat ids as
+  opaque. `webhookPaymentId` verifies `Stripe-Signature` (HMAC-SHA256,
+  5-minute tolerance) with WebCrypto against one secret or several (account +
+  Connect endpoint on one URL) and returns the session id of any
+  `checkout.session.*` event, account-prefixed for Connect events. Method
+  names map `blik`/`przelewy24`/`creditcard` → `blik`/`p24`/`card`.
+  Subscriptions throw for now (Mollie keeps them).
+
 ## 0.5.0 — 2026-08-09
 
 ### Added

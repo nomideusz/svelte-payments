@@ -1,7 +1,7 @@
 {
   "name": "@nomideusz/svelte-payments",
-  "version": "0.5.0",
-  "description": "Provider-agnostic payments for the @nomideusz booking platform — Mollie server adapter + Stripe Connect UI.",
+  "version": "0.9.0",
+  "description": "Provider-agnostic payments for the @nomideusz booking platform — Mollie and Stripe server adapters + Stripe Connect UI.",
   "type": "module",
   "sideEffects": false,
   "license": "MIT",
@@ -28,6 +28,10 @@
     "!dist/**/*.test.*",
     "!dist/**/*.spec.*"
   ],
+  "imports": {
+    "#lib": "./src/lib",
+    "#lib/*": "./src/lib/*"
+  },
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
@@ -44,15 +48,16 @@
     "svelte": "^5.0.0"
   },
   "devDependencies": {
-    "@sveltejs/adapter-auto": "^7.0.1",
-    "@sveltejs/kit": "^2.69.1",
-    "@sveltejs/package": "^2.5.8",
-    "@sveltejs/vite-plugin-svelte": "^6.2.4",
-    "svelte": "^5.56.4",
+    "@sveltejs/adapter-auto": "^8.0.0",
+    "@sveltejs/adapter-vercel": "^7.0.0",
+    "@sveltejs/kit": "^3.0.0",
+    "@sveltejs/package": "^3.0.0",
+    "@sveltejs/vite-plugin-svelte": "^7.3.0",
+    "svelte": "^5.57.1",
     "svelte-check": "^4.7.1",
-    "typescript": "^5.9.3",
-    "vite": "^7.3.6",
-    "vitest": "^4.1.9"
+    "typescript": "^6.0.3",
+    "vite": "^8.3.0",
+    "vitest": "^4.1.10"
   },
   "keywords": [
     "svelte",
@@ -65,5 +70,5 @@
     "type": "git",
     "url": "https://github.com/nomideusz/svelte-payments"
   },
-  "homepage": "https://svelte-payments.vercel.app/"
+  "homepage": "https://svelte-payments.zaur.app/"
 }

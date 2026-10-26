@@ -15,8 +15,17 @@ export interface CreatePaymentInput {
 	currency: string;
 	/** Shown to the customer on the checkout page and bank statement */
 	description: string;
-	/** Where the customer lands after checkout (success AND failure — check status there) */
+	/** Where the customer lands after checkout (success AND failure — check status there).
+	 *  Embedded checkouts only come back here when a method has to leave the
+	 *  page (Przelewy24, a bank's own 3-D Secure page). */
 	redirectUrl: string;
+	/** Stripe: pay ON the page (Payment Element) instead of redirecting — the
+	 *  payment comes back with `clientSecret` and no `checkoutUrl`. */
+	embedded?: boolean;
+	/** When the checkout stops taking money. Stripe allows 30 min – 24 h out;
+	 *  match it to whatever the payment holds (a seat), so nothing is paid for
+	 *  after the hold is gone. */
+	expiresAt?: Date;
 	/** Publicly reachable endpoint the provider calls on status changes */
 	webhookUrl?: string;
 	/** Checkout page locale, e.g. 'pl_PL' */
@@ -59,6 +68,9 @@ export interface Payment {
 	currency: string;
 	/** Present while the payment is still payable — redirect the customer here */
 	checkoutUrl?: string;
+	/** Embedded checkouts: what the browser (Stripe.js) needs to pay THIS
+	 *  payment and nothing else. Present while it is still payable. */
+	clientSecret?: string;
 	metadata?: Record<string, string>;
 	customerId?: string;
 	/** Set on charges spawned by a subscription */
@@ -153,6 +165,13 @@ export interface PaymentProvider {
 	 */
 	listCustomerPayments?(customerId: string): Promise<Payment[]>;
 	cancelSubscription(customerId: string, id: string): Promise<Subscription>;
+	/**
+	 * Close a still-payable checkout so nobody can pay it any more (the hold it
+	 * guarded is being released). Returns the payment's state afterwards — a
+	 * checkout that was paid in the meantime comes back 'paid', not an error.
+	 * Optional: providers without it simply let the checkout expire.
+	 */
+	expirePayment?(id: string): Promise<Payment>;
 	/**
 	 * Extract the payment id from an incoming webhook request, or null if the
 	 * request isn't a valid webhook. Webhook bodies are UNTRUSTED — never take
