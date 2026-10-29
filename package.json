@@ -49,7 +49,6 @@
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "^8.0.0",
-    "@sveltejs/adapter-vercel": "^7.0.0",
     "@sveltejs/kit": "^3.0.0",
     "@sveltejs/package": "^3.0.0",
     "@sveltejs/vite-plugin-svelte": "^7.3.0",
@@ -70,5 +69,5 @@
     "type": "git",
     "url": "https://github.com/nomideusz/svelte-payments"
   },
-  "homepage": "https://svelte-payments.zaur.app/"
+  "homepage": "https://svelte.zaur.app/payments"
 }
